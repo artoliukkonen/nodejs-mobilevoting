@@ -56,6 +56,25 @@ app.get('/quiz/save', function(req, res){
   */
 });
 
+app.get('/list', function(req, res) {
+  Question.findAll().success(function(question) {
+    //var rooms = [];
+    //for(i=0;i<room.length;i++) rooms.push(room[i].user_uuid);
+    res.render('list', { question: question });
+  });
+});
+
+app.get('/show/:id', function(req, res) {
+  id = req.params.id;
+  Question.find({id:id}).success(function(question) {
+    Option.findAll({QuestionId: question.id}).success(function(option) {
+      console.log(option);
+      res.render('show', { question: question, options: option });
+    });
+  });
+});
+
+
 // Database connection
 var Sequelize = require("sequelize");
 var sequelize = new Sequelize('votetime', 'votetime', null, {
@@ -73,62 +92,56 @@ var User = sequelize.define('User', {
 var Question = sequelize.define('Question', {
   id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
   question: Sequelize.STRING,
-  user_id: Sequelize.INTEGER
+  alias: Sequelize.STRING
 });
 
 var Option = sequelize.define('Option', {
   id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
-  question_id: Sequelize.INTEGER,
   value: Sequelize.STRING
 });
 
 var Answer = sequelize.define('Answer', {
   id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
-  user_id: Sequelize.INTEGER,
-  option_id: Sequelize.INTEGER
 });
 
 User.hasMany(Question);
+User.hasMany(Answer);
+
 Question.hasMany(Option);
 Option.hasMany(Answer);
 
-User.sync({force: true});
-Question.sync({force: true});
-Option.sync({force: true});
-Answer.sync({force: true});
-
+User.sync();
+Question.sync();
+Option.sync();
+Answer.sync();
 
 var nowjs = require("now");
 var everyone = nowjs.initialize(app);
 
  nowjs.on('connect', function(){
-      console.log('User '+this.user.clientId+' connected');
-      
-      
+  console.log('User '+this.user.clientId+' connected');
  });
  
  nowjs.on('disconnect', function(){
-    console.log('User '+this.user.clientId+' disconnected');
+  console.log('User '+this.user.clientId+' disconnected');
  });
- 
- 
-everyone.now.createQuestion = function(data) {
 
+everyone.now.createQuestion = function(data) {
   console.log(data);  
   
   var question = Question.build({
     question: data[0].value,
-    user_id: 0 // TODO
+    UserId: 0 // TODO
   });
   
-  question.save().success(function() {
+  question.save().success(function(question) {
     console.log('Question insert success');
-    console.log(this);
+    console.log(question);
     
     for(i = 1; i<data.length; i++) {
       var option = Option.build({
         value: data[i].value,
-        question_id: this.id
+        QuestionId: question.id
       });
       
       option.save().success(function() { 
@@ -142,9 +155,18 @@ everyone.now.createQuestion = function(data) {
     console.log('Question insert failed :( ');
     console.log(error);
   });
-  
+};
 
+everyone.now.answer = function(question, option) {
+  var answer = Answer.build({
+    OptionId: option,
+    QuestionId: question,
+    UserId: 0 // TODO
+  });
   
+  answer.save().success(function() {
+  
+  });
 };
 
 
