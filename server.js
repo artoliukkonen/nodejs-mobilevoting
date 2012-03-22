@@ -66,9 +66,8 @@ app.get('/list', function(req, res) {
 
 app.get('/show/:id', function(req, res) {
   id = req.params.id;
-  Question.find({id:id}).success(function(question) {
-    Option.findAll({QuestionId: question.id}).success(function(option) {
-      console.log(option);
+  Question.find( { where: {id:id} } ).success(function(question) {
+    Option.findAll( { where: {QuestionId: question.id } } ).success(function(option) {
       res.render('show', { question: question, options: option });
     });
   });
@@ -109,6 +108,7 @@ User.hasMany(Answer);
 
 Question.hasMany(Option);
 Option.hasMany(Answer);
+Answer.hasOne(Option);
 
 User.sync();
 Question.sync();
@@ -125,6 +125,21 @@ var everyone = nowjs.initialize(app);
  nowjs.on('disconnect', function(){
   console.log('User '+this.user.clientId+' disconnected');
  });
+ 
+ everyone.now.join = function(id) {
+   var self = this;
+  
+  // Remove user from other groups
+  this.getGroups(function (groups) {
+    for (var i = groups.length; i--;) {
+      if (groups[i] !== 'everyone') {
+        console.log('Removed from group: '+groups[i]);
+        nowjs.getGroup(groups[i]).removeUser(self.user.clientId); 
+      }
+    }
+  });
+  nowjs.getGroup(id).addUser(this.user.clientId);
+ }
 
 everyone.now.createQuestion = function(data) {
   console.log(data);  
@@ -158,14 +173,25 @@ everyone.now.createQuestion = function(data) {
 };
 
 everyone.now.answer = function(question, option) {
+  var self = this;
   var answer = Answer.build({
     OptionId: option,
-    QuestionId: question,
     UserId: 0 // TODO
   });
   
-  answer.save().success(function() {
-  
+  answer.save().success(function(answer) {
+    console.log(answer);
+    self.now.updateChart(answer.OptionId);
+  }).error(function(error) {
+    console.log('Answer insert failed :( ');
+    console.log(error);
+  });
+};
+
+everyone.now.getChart = function(question_id) {
+  Option.findAll( { where: {QuestionId: question_id } } ).success(function(option) {
+    // TODO: Get answers to questions  & pass to browser. Race issues with for loop...
+    
   });
 };
 
